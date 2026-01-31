@@ -99,7 +99,7 @@ function sleep(ms) {
 }
 
 async function waitForGatewayReady(opts = {}) {
-  const timeoutMs = opts.timeoutMs ?? 30_000;
+  const timeoutMs = opts.timeoutMs ?? 60_000;
   const start = Date.now();
   const endpoints = ["/openclaw", "/openclaw", "/", "/health"];
 
@@ -114,16 +114,17 @@ async function waitForGatewayReady(opts = {}) {
           return true;
         }
       } catch (err) {
-        if (err.code !== "ECONNREFUSED") {
-          console.warn(
-            `[gateway] health check error: ${err.code || err.message}`,
-          );
+        if (err.code !== "ECONNREFUSED" && err.cause?.code !== "ECONNREFUSED") {
+          const msg = err.code || err.message;
+          if (msg !== "fetch failed" && msg !== "UND_ERR_CONNECT_TIMEOUT") {
+            console.warn(`[gateway] health check error: ${msg}`);
+          }
         }
       }
     }
     await sleep(250);
   }
-  console.error(`[gateway] failed to become ready after ${timeoutMs}ms`);
+  console.error(`[gateway] failed to become ready after ${timeoutMs / 1000} seconds`);
   return false;
 }
 
@@ -183,7 +184,7 @@ async function ensureGatewayRunning() {
   if (!gatewayStarting) {
     gatewayStarting = (async () => {
       await startGateway();
-      const ready = await waitForGatewayReady({ timeoutMs: 30_000 });
+      const ready = await waitForGatewayReady({ timeoutMs: 60_000 });
       if (!ready) {
         throw new Error("Gateway did not become ready in time");
       }
