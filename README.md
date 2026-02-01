@@ -83,6 +83,10 @@ docker run --rm -p 8080:8080 \
 
 ## FAQ
 
+**Q: How do I access the setup page?**
+
+A: Go to `/setup` on your deployed instance. When prompted for credentials, use the generated `SETUP_PASSWORD` from your Railway Variables as the password. The username field is ignored—you can leave it empty or enter anything.
+
 **Q: I see "gateway disconnected" or authentication errors in the Control UI. What should I do?**
 
 A: Go back to `/setup` and click the "Open OpenClaw UI" button from there. The setup page passes the required auth token to the UI. Accessing the UI directly without the token will cause connection errors.
@@ -94,6 +98,16 @@ A: Make sure `ENABLE_WEB_TUI=true` is set in your Railway Variables and redeploy
 **Q: How do I approve pairing for Telegram or Discord?**
 
 A: Go to `/setup` and use the "Approve Pairing" dialog to approve pending pairing requests from your chat channels.
+
+**Q: How do I change the AI model after setup?**
+
+A: Use the OpenClaw CLI to switch models. Access the web terminal at `/tui` (if enabled) or SSH into your container and run:
+
+```bash
+openclaw models set provider/model-id
+```
+
+For example: `openclaw models set anthropic/claude-sonnet-4-20250514` or `openclaw models set openai/gpt-4-turbo`. Use `openclaw models list --all` to see available models.
 
 ## Support
 
