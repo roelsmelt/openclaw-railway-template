@@ -17,10 +17,75 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
-const STATE_DIR = process.env.OPENCLAW_STATE_DIR?.trim() || path.join(os.homedir(), '.openclaw');
-const WORKSPACE_DIR = process.env.OPENCLAW_WORKSPACE_DIR?.trim() || path.join(process.cwd(), 'data', 'workspace');
+// Volume mount path (Railway mounts to /data by default)
+const VOLUME_PATH = '/data';
+const VOLUME_STATE_DIR = path.join(VOLUME_PATH, '.openclaw');
+const VOLUME_WORKSPACE_DIR = path.join(VOLUME_PATH, 'workspace');
+
+// Default OpenClaw paths (these get symlinked to volume)
+const DEFAULT_STATE_DIR = path.join(os.homedir(), '.openclaw');
+const DEFAULT_WORKSPACE_DIR = path.join(process.cwd(), 'data', 'workspace');
+
+// Use volume paths if volume is mounted, otherwise use defaults
+const VOLUME_MOUNTED = fs.existsSync(VOLUME_PATH) && fs.statSync(VOLUME_PATH).isDirectory();
+const STATE_DIR = process.env.OPENCLAW_STATE_DIR?.trim() || (VOLUME_MOUNTED ? VOLUME_STATE_DIR : DEFAULT_STATE_DIR);
+const WORKSPACE_DIR = process.env.OPENCLAW_WORKSPACE_DIR?.trim() || (VOLUME_MOUNTED ? VOLUME_WORKSPACE_DIR : DEFAULT_WORKSPACE_DIR);
 const CONFIG_PATH = path.join(STATE_DIR, 'clawdbot.json');
 const AUTO_SETUP_ENABLED = process.env.AUTO_SETUP_ENABLED?.toLowerCase() !== 'false';
+
+/**
+ * Set up persistent state by creating symlinks from default paths to volume
+ * This ensures pairing and config survive redeploys
+ */
+function setupPersistentState() {
+    if (!VOLUME_MOUNTED) {
+        console.log('[auto-setup] No volume mounted at /data, using ephemeral storage');
+        return;
+    }
+
+    console.log('[auto-setup] Setting up persistent state on volume...');
+
+    // Ensure volume directories exist
+    try {
+        if (!fs.existsSync(VOLUME_STATE_DIR)) {
+            fs.mkdirSync(VOLUME_STATE_DIR, { recursive: true });
+            console.log(`[auto-setup] ✅ Created ${VOLUME_STATE_DIR}`);
+        }
+        if (!fs.existsSync(VOLUME_WORKSPACE_DIR)) {
+            fs.mkdirSync(VOLUME_WORKSPACE_DIR, { recursive: true });
+            console.log(`[auto-setup] ✅ Created ${VOLUME_WORKSPACE_DIR}`);
+        }
+    } catch (err) {
+        console.error(`[auto-setup] ⚠️ Could not create volume directories: ${err.message}`);
+        console.log('[auto-setup] Falling back to ephemeral storage');
+        return;
+    }
+
+    // Create symlink for state dir (if default path is used and not already a symlink)
+    try {
+        if (!process.env.OPENCLAW_STATE_DIR && fs.existsSync(DEFAULT_STATE_DIR)) {
+            const stats = fs.lstatSync(DEFAULT_STATE_DIR);
+            if (!stats.isSymbolicLink()) {
+                // If there's existing data, copy it first
+                if (fs.readdirSync(DEFAULT_STATE_DIR).length > 0) {
+                    console.log('[auto-setup] Migrating existing state to volume...');
+                    fs.cpSync(DEFAULT_STATE_DIR, VOLUME_STATE_DIR, { recursive: true });
+                }
+                fs.rmSync(DEFAULT_STATE_DIR, { recursive: true });
+                fs.symlinkSync(VOLUME_STATE_DIR, DEFAULT_STATE_DIR);
+                console.log(`[auto-setup] ✅ Symlinked ${DEFAULT_STATE_DIR} → ${VOLUME_STATE_DIR}`);
+            }
+        } else if (!process.env.OPENCLAW_STATE_DIR && !fs.existsSync(DEFAULT_STATE_DIR)) {
+            // Create symlink if default doesn't exist yet
+            fs.symlinkSync(VOLUME_STATE_DIR, DEFAULT_STATE_DIR);
+            console.log(`[auto-setup] ✅ Symlinked ${DEFAULT_STATE_DIR} → ${VOLUME_STATE_DIR}`);
+        }
+    } catch (err) {
+        console.error(`[auto-setup] ⚠️ Could not create state symlink: ${err.message}`);
+    }
+
+    console.log('[auto-setup] Persistent state setup complete');
+}
 
 // Workspace template files (stored in /app/templates or bundled with image)
 const WORKSPACE_TEMPLATES = ['Bootstrap.md', 'Identity.md', 'Soul.md', 'Memory.md'];
@@ -176,6 +241,9 @@ async function runSetup() {
 // Main execution
 async function main() {
     console.log('[auto-setup] Starting auto-configuration check...');
+
+    // Set up persistent state on volume (symlinks)
+    setupPersistentState();
 
     // Check if auto-setup is enabled
     if (!AUTO_SETUP_ENABLED) {
