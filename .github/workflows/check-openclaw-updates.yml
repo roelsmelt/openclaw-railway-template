@@ -1,0 +1,108 @@
+name: Check OpenClaw Updates
+
+on:
+  schedule:
+    # Run every Monday and Thursday at 10:00 UTC
+    - cron: '0 10 * * 1,4'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Get current OpenClaw version from Dockerfile
+        id: current
+        run: |
+          CURRENT=$(grep -oP 'openclaw@\K[0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?' Dockerfile)
+          echo "version=$CURRENT" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT"
+
+      - name: Get latest OpenClaw version from npm
+        id: latest
+        run: |
+          LATEST=$(npm view openclaw version)
+          echo "version=$LATEST" >> $GITHUB_OUTPUT
+          echo "Latest version: $LATEST"
+
+      - name: Compare versions
+        id: compare
+        run: |
+          CURRENT="${{ steps.current.outputs.version }}"
+          LATEST="${{ steps.latest.outputs.version }}"
+          if [ "$CURRENT" != "$LATEST" ]; then
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "Update available: $CURRENT -> $LATEST"
+          else
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "Already on latest version"
+          fi
+
+      - name: Update Dockerfile
+        if: steps.compare.outputs.needs_update == 'true'
+        run: |
+          LATEST="${{ steps.latest.outputs.version }}"
+          DATE=$(date +%Y-%m-%d)
+          
+          # Update version in Dockerfile
+          sed -i "s/openclaw@[0-9]\+\.[0-9]\+\.[0-9]\+\(-[0-9]\+\)\?/openclaw@$LATEST/g" Dockerfile
+          
+          # Update comment with current date
+          sed -i "s/# Current version: .*/# Current version: $LATEST (as of $DATE)/" Dockerfile
+
+      - name: Create Pull Request
+        if: steps.compare.outputs.needs_update == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update OpenClaw to ${{ steps.latest.outputs.version }}"
+          branch: openclaw-update-${{ steps.latest.outputs.version }}
+          delete-branch: true
+          title: "🦞 Update OpenClaw to ${{ steps.latest.outputs.version }}"
+          body: |
+            ## OpenClaw Version Update
+            
+            **Current version:** `${{ steps.current.outputs.version }}`  
+            **New version:** `${{ steps.latest.outputs.version }}`
+            
+            ### What's Changed
+            See [OpenClaw releases](https://github.com/openclaw/openclaw/releases) for changelog.
+            
+            ### Testing
+            - [ ] Railway will create a preview deployment for this PR
+            - [ ] Test the preview deployment
+            - [ ] Verify gateway starts successfully
+            - [ ] Check for any breaking changes
+            
+            ### Merge Checklist
+            - [ ] Preview deployment is healthy
+            - [ ] No breaking changes detected
+            - [ ] Ready to deploy to production
+            
+            ---
+            
+            🤖 This PR was automatically created by the OpenClaw update workflow.
+            
+            **To test:** Railway will automatically create a preview deployment. Check the deployment logs.
+            
+            **To merge:** Review the changes, test the preview, then merge this PR. Railway will automatically deploy to production.
+          labels: |
+            dependencies
+            openclaw
+            automated
+
+      - name: Comment on workflow run
+        if: steps.compare.outputs.needs_update == 'false'
+        run: |
+          echo "✅ Already on latest OpenClaw version (${{ steps.current.outputs.version }})"

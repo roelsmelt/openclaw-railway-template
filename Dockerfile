@@ -11,11 +11,10 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # OpenClaw installation
-# Using @latest to get automatic updates.
-# If OpenClaw breaks again with a new version, pin to a specific working version here.
+# Version is pinned for stability. GitHub Action will create PRs for updates.
 # See: https://github.com/openclaw/openclaw/releases
-# Build cache bust: 2026-02-04-stable
-RUN npm install -g openclaw@latest
+# Current version: 2026.2.2-3 (as of 2026-02-04)
+RUN npm install -g openclaw@2026.2.2-3
 
 WORKDIR /app
 
