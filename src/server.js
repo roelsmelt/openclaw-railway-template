@@ -469,6 +469,11 @@ function buildOnboardArgs(payload) {
     }
   }
 
+  // Add model parameter if provided
+  if (payload.model?.trim()) {
+    args.push("--model", payload.model.trim());
+  }
+
   return args;
 }
 
@@ -884,7 +889,7 @@ function createTuiWebSocketServer(httpServer) {
       if (ptyProcess) {
         try {
           ptyProcess.kill();
-        } catch {}
+        } catch { }
       }
       activeTuiSession = null;
     });
@@ -1010,7 +1015,7 @@ async function gracefulShutdown(signal) {
     try {
       activeTuiSession.ws.close(1001, "Server shutting down");
       activeTuiSession.pty.kill();
-    } catch {}
+    } catch { }
     activeTuiSession = null;
   }
 
