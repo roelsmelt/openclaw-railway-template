@@ -18,8 +18,13 @@ import path from 'node:path';
 import os from 'node:os';
 
 const STATE_DIR = process.env.OPENCLAW_STATE_DIR?.trim() || path.join(os.homedir(), '.openclaw');
+const WORKSPACE_DIR = process.env.OPENCLAW_WORKSPACE_DIR?.trim() || path.join(process.cwd(), 'data', 'workspace');
 const CONFIG_PATH = path.join(STATE_DIR, 'clawdbot.json');
 const AUTO_SETUP_ENABLED = process.env.AUTO_SETUP_ENABLED?.toLowerCase() !== 'false';
+
+// Workspace template files (stored in /app/templates or bundled with image)
+const WORKSPACE_TEMPLATES = ['Bootstrap.md', 'Identity.md', 'Soul.md', 'Memory.md'];
+const TEMPLATES_DIR = path.join(process.cwd(), 'templates', 'workspace');
 
 const REQUIRED_VARS = {
     SETUP_PASSWORD: process.env.SETUP_PASSWORD?.trim(),
@@ -43,6 +48,68 @@ function checkRequiredVars() {
         }
     }
     return missing;
+}
+
+/**
+ * Copy workspace templates to the workspace directory if they don't exist
+ * Templates are processed to replace placeholders with actual values
+ */
+function copyWorkspaceTemplates() {
+    console.log('[auto-setup] Checking workspace templates...');
+
+    // Ensure workspace directory exists
+    if (!fs.existsSync(WORKSPACE_DIR)) {
+        fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
+        console.log(`[auto-setup] Created workspace directory: ${WORKSPACE_DIR}`);
+    }
+
+    // Check if templates directory exists
+    if (!fs.existsSync(TEMPLATES_DIR)) {
+        console.log(`[auto-setup] ⚠️  Templates directory not found: ${TEMPLATES_DIR}`);
+        console.log('[auto-setup] Skipping workspace template setup');
+        return;
+    }
+
+    let added = 0;
+    let skipped = 0;
+
+    for (const templateFile of WORKSPACE_TEMPLATES) {
+        const sourcePath = path.join(TEMPLATES_DIR, templateFile);
+        const destPath = path.join(WORKSPACE_DIR, templateFile);
+
+        // Skip if destination already exists (don't overwrite)
+        if (fs.existsSync(destPath)) {
+            skipped++;
+            continue;
+        }
+
+        // Skip if source doesn't exist
+        if (!fs.existsSync(sourcePath)) {
+            console.log(`[auto-setup] ⚠️  Template not found: ${templateFile}`);
+            continue;
+        }
+
+        // Read template and process placeholders
+        let content = fs.readFileSync(sourcePath, 'utf-8');
+
+        // Replace placeholders with environment values or defaults
+        const placeholders = {
+            '{{BUDDY_NAME}}': process.env.BUDDY_NAME || 'Buddy',
+            '{{HUMAN}}': process.env.BUDDY_HUMAN || 'Human',
+            '{{TELEGRAM_BOT_USERNAME}}': process.env.TELEGRAM_BOT_USERNAME || '@UnknownBot',
+        };
+
+        for (const [placeholder, value] of Object.entries(placeholders)) {
+            content = content.replace(new RegExp(placeholder, 'g'), value);
+        }
+
+        // Write to workspace
+        fs.writeFileSync(destPath, content, 'utf-8');
+        console.log(`[auto-setup] ✅ Added ${templateFile} to workspace`);
+        added++;
+    }
+
+    console.log(`[auto-setup] Workspace templates: ${added} added, ${skipped} already exist`);
 }
 
 async function waitForServer(maxAttempts = 30) {
@@ -120,6 +187,8 @@ async function main() {
     // Check if already configured
     if (isConfigured()) {
         console.log('[auto-setup] Already configured (config exists)');
+        // Still ensure workspace templates exist
+        copyWorkspaceTemplates();
         console.log('[auto-setup] To reconfigure, delete the config or set different env vars');
         process.exit(0);
     }
