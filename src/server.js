@@ -469,11 +469,6 @@ function buildOnboardArgs(payload) {
     }
   }
 
-  // Add model parameter if provided
-  if (payload.model?.trim()) {
-    args.push("--model", payload.model.trim());
-  }
-
   return args;
 }
 
