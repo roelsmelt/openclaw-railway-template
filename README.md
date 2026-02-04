@@ -1,118 +1,137 @@
-# OpenClaw Railway Template (1‑click deploy)
+# OpenClaw Railway Buddy - Auto-Configuration Guide
 
-This repo packages **OpenClaw** for Railway with a small **/setup** web wizard so users can deploy and onboard **without running any commands**.
+Forked from [arjunkomath/openclaw-railway-template](https://github.com/arjunkomath/openclaw-railway-template) with auto-configuration support.
 
-## What you get
+## 🎯 Quick Deploy
 
-- **OpenClaw Gateway + Control UI** (served at `/` and `/openclaw`)
-- A friendly **Setup Wizard** at `/setup` (protected by a password)
-- Optional **Web Terminal** at `/tui` for browser-based TUI access
-- Persistent state via **Railway Volume** (so config/credentials/memory survive redeploys)
+1. **Create new service** in Railway from this repo
+2. **Set environment variables** (see below)
+3. **Deploy** - buddy auto-configures on first start
+4. **Done!** No manual /setup wizard needed
 
-## How it works (high level)
+## 📋 Environment Variables
 
-- The container runs a wrapper web server.
-- The wrapper protects `/setup` with `SETUP_PASSWORD`.
-- During setup, the wrapper runs `openclaw onboard --non-interactive ...` inside the container, writes state to the volume, and then starts the gateway.
-- After setup, **`/` is OpenClaw**. The wrapper reverse-proxies all traffic (including WebSockets) to the local gateway process.
+### Shared Variables (Project-wide)
+Set these once in Railway **Project Settings → Shared Variables**:
+- `GEMINI_API_KEY` - Your Google Gemini API key
+- `GCS_BUDDY_KEY` - Google Cloud Storage key for buddy data
 
-## Getting chat tokens (so you don't have to scramble)
+### Per-Buddy Variables  
+Set these individually in each **Service → Variables**:
+- `TELEGRAM_BOT_TOKEN` - Unique Telegram bot token for this buddy
+- `SETUP_PASSWORD` - Setup wizard password (auto-generated in template)
+- `OPENCLAW_MODEL` - Optional, defaults to `google/gemini-2.0-flash-exp`
 
-### Telegram bot token
+### Auto-Generated Variables
+These are set automatically by the template, don't change:
+- `OPENCLAW_STATE_DIR` = `/data/.openclaw`
+- `OPENCLAW_WORKSPACE_DIR` = `/data/workspace`
+- `OPENCLAW_GATEWAY_TOKEN` - Auto-generated per buddy
+- `INTERNAL_GATEWAY_HOST` = `127.0.0.1`
+- `INTERNAL_GATEWAY_PORT` = `18789`
+- `PORT` = `8080`
+- `RAILWAY_RUN_UID` = `0`
 
-1. Open Telegram and message **@BotFather**
-2. Run `/newbot` and follow the prompts
-3. BotFather will give you a token that looks like: `123456789:AA...`
-4. Paste that token into `/setup`
+## 🤖 Auto-Configuration
 
-### Discord bot token
+### How It Works
+1. Container starts
+2. `scripts/auto-setup.js` runs before server
+3. Checks if already configured (clawdbot.json exists)
+4. If not configured + env vars present → auto-configures via setup API
+5. Server starts fully configured
 
-1. Go to the Discord Developer Portal: https://discord.com/developers/applications
-2. **New Application** → pick a name
-3. Open the **Bot** tab → **Add Bot**
-4. Copy the **Bot Token** and paste it into `/setup`
-5. Invite the bot to your server (OAuth2 URL Generator → scopes: `bot`, `applications.commands`; then choose permissions)
-
-## Web Terminal (TUI)
-
-The template includes an optional web-based terminal that runs `openclaw tui` in your browser.
-
-### Enabling
-
-Set `ENABLE_WEB_TUI=true` in your Railway Variables. The terminal is **disabled by default**.
-
-Once enabled, access it at `/tui` or via the "Open Terminal" button on the setup page.
-
-### Security
-
-The web TUI implements multiple security layers:
-
-| Control | Description |
-|---------|-------------|
-| **Opt-in only** | Disabled by default, requires explicit `ENABLE_WEB_TUI=true` |
-| **Password protected** | Uses the same `SETUP_PASSWORD` as the setup wizard |
-| **Single session** | Only 1 concurrent TUI session allowed at a time |
-| **Idle timeout** | Auto-closes after 5 minutes of inactivity (configurable via `TUI_IDLE_TIMEOUT_MS`) |
-| **Max duration** | Hard limit of 30 minutes per session (configurable via `TUI_MAX_SESSION_MS`) |
-
-### Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ENABLE_WEB_TUI` | `false` | Set to `true` to enable |
-| `TUI_IDLE_TIMEOUT_MS` | `300000` (5 min) | Closes session after inactivity |
-| `TUI_MAX_SESSION_MS` | `1800000` (30 min) | Maximum session duration |
-
-## Local testing
-
-```bash
-docker build -t openclaw-railway-template .
-
-docker run --rm -p 8080:8080 \
-  -e PORT=8080 \
-  -e SETUP_PASSWORD=test \
-  -e ENABLE_WEB_TUI=true \
-  -e OPENCLAW_STATE_DIR=/data/.openclaw \
-  -e OPENCLAW_WORKSPACE_DIR=/data/workspace \
-  -v $(pwd)/.tmpdata:/data \
-  openclaw-railway-template
-
-# Setup wizard: http://localhost:8080/setup (password: test)
-# Web terminal: http://localhost:8080/tui (after setup)
+### Logs
+Watch deployment logs for auto-setup progress:
+```
+[auto-setup] Starting auto-configuration check...
+[auto-setup] All required variables present, proceeding with auto-setup...
+[auto-setup] Waiting for server to start...
+[auto-setup] Server is ready
+[auto-setup] Running automated setup...
+[auto-setup] ✅ Setup completed successfully
+[auto-setup] 🎉 Auto-setup complete! Starting main server...
 ```
 
-## FAQ
+### Reconfiguring a Buddy
+To reconfigure (e.g., new Telegram bot):
+1. Update `TELEGRAM_BOT_TOKEN` in Railway
+2. Go to service Settings → Delete `emrys-data` volume (or equivalent)
+3. Redeploy
+4. Auto-setup runs again with new config
 
-**Q: How do I access the setup page?**
+## 🚀 Deployment
 
-A: Go to `/setup` on your deployed instance. When prompted for credentials, use the generated `SETUP_PASSWORD` from your Railway Variables as the password. The username field is ignored—you can leave it empty or enter anything.
+Current buddy deployments:
+- **Roel | Galahad**: [roel-or-galahad-production.up.railway.app](https://roel-or-galahad-production.up.railway.app)
+- **Roel | Emrys**: [openclaw-production-cd53.up.railway.app](https://openclaw-production-cd53.up.railway.app)  
+- **Ess | Morgan**: [openclaw-production-5ef6.up.railway.app](https://openclaw-production-5ef6.up.railway.app)
+- **Ess | Kaleh**: TBD
 
-**Q: I see "gateway disconnected" or authentication errors in the Control UI. What should I do?**
+## 🔧 Manual Setup (Fallback)
 
-A: Go back to `/setup` and click the "Open OpenClaw UI" button from there. The setup page passes the required auth token to the UI. Accessing the UI directly without the token will cause connection errors.
+If auto-setup fails or is disabled (`AUTO_SETUP_ENABLED=false`):
+1. Navigate to `https://<your-buddy>.up.railway.app/setup`
+2. Login with `SETUP_PASSWORD`
+3. Configure manually via wizard
 
-**Q: I don't see the TUI option on the setup page.**
+## 📦 Updating OpenClaw Version
 
-A: Make sure `ENABLE_WEB_TUI=true` is set in your Railway Variables and redeploy. The web terminal is disabled by default.
+Auto-updates are tracked via GitHub Action. To manually update:
+1. Edit `Dockerfile` line 17
+2. Change version: `RUN npm install -g openclaw@X.X.X`
+3. Commit and push
+4. Railway auto-deploys
 
-**Q: How do I approve pairing for Telegram or Discord?**
+See [VERSION_MANAGEMENT.md](VERSION_MANAGEMENT.md) for version tracking details.
 
-A: Go to `/setup` and use the "Approve Pairing" dialog to approve pending pairing requests from your chat channels.
+## 🐛 Troubleshooting
 
-**Q: How do I change the AI model after setup?**
+### Auto-setup fails
+Check Railway logs for specific error. Common issues:
+- Missing `GEMINI_API_KEY` in shared variables
+- Missing `TELEGRAM_BOT_TOKEN` for this buddy
+- Invalid bot token
 
-A: Use the OpenClaw CLI to switch models. Access the web terminal at `/tui` (if enabled) or SSH into your container and run:
-
+### Buddy keeps showing /setup wizard
+Means auto-setup was skipped. Check:
 ```bash
-openclaw models set provider/model-id
+railway logs | grep auto-setup
 ```
 
-For example: `openclaw models set anthropic/claude-sonnet-4-20250514` or `openclaw models set openai/gpt-4-turbo`. Use `openclaw models list --all` to see available models.
+Look for messages about missing variables.
 
-**Q: My config seems broken or I'm getting strange errors. How do I fix it?**
+### Change Telegram bot mid-deployment
+1. Update `TELEGRAM_BOT_TOKEN` variable
+2. Delete volume to force reconfiguration
+3. Redeploy
 
-A: Go to `/setup` and click the "Run Doctor" button. This runs `openclaw doctor --repair` which performs health checks on your gateway and channels, creates a backup of your config, and removes any unrecognized or corrupted configuration keys.
+## 📝 Creating New Buddies
 
-## Support
+1. **In Railway:**
+   - Create new service from this repo
+   - Attach to `MyBuddyTalk` project to use shared variables
+   
+2. **Create Telegram Bot:**
+   - Message [@BotFather](https://t.me/botfather)
+   - `/newbot` → follow prompts
+   - Copy bot token
+   
+3. **Set Variables:**
+   ```
+   TELEGRAM_BOT_TOKEN=<your-bot-token>
+   OPENCLAW_MODEL=google/gemini-2.0-flash-exp  # optional
+   ```
+   
+4. **Deploy:** Buddy auto-configures on first start
 
-Need help? [Request support on Railway Station](https://station.railway.com/all-templates/d0880c01-2cc5-462c-8b76-d84c1a203348)
+5. **Pair via Telegram:**
+   - Message your bot
+   - Get pairing code from buddy setup page
+   - Approve pairing
+
+## 🔗 Links
+
+- [OpenClaw Releases](https://github.com/openclaw/openclaw/releases)
+- [Original Template](https://github.com/arjunkomath/openclaw-railway-template)
+- [Railway Docs](https://docs.railway.app)
