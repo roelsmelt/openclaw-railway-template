@@ -45,14 +45,17 @@ function setupPersistentState() {
 
     console.log('[auto-setup] Setting up persistent state on volume...');
 
-    // Ensure volume directories exist
+    // Ensure volume directories exist with proper permissions
     try {
         if (!fs.existsSync(VOLUME_STATE_DIR)) {
-            fs.mkdirSync(VOLUME_STATE_DIR, { recursive: true });
-            console.log(`[auto-setup] ✅ Created ${VOLUME_STATE_DIR}`);
+            fs.mkdirSync(VOLUME_STATE_DIR, { recursive: true, mode: 0o700 });
+            console.log(`[auto-setup] ✅ Created ${VOLUME_STATE_DIR} (mode 700)`);
+        } else {
+            // Fix permissions on existing state dir
+            fs.chmodSync(VOLUME_STATE_DIR, 0o700);
         }
         if (!fs.existsSync(VOLUME_WORKSPACE_DIR)) {
-            fs.mkdirSync(VOLUME_WORKSPACE_DIR, { recursive: true });
+            fs.mkdirSync(VOLUME_WORKSPACE_DIR, { recursive: true, mode: 0o755 });
             console.log(`[auto-setup] ✅ Created ${VOLUME_WORKSPACE_DIR}`);
         }
     } catch (err) {
