@@ -8,6 +8,7 @@ RUN apt-get update \
   procps \
   python3 \
   build-essential \
+  gosu \
   && rm -rf /var/lib/apt/lists/*
 
 # OpenClaw installation
@@ -27,7 +28,8 @@ COPY templates ./templates
 
 RUN useradd -m -s /bin/bash openclaw \
   && chown -R openclaw:openclaw /app \
-  && mkdir -p /data && chown openclaw:openclaw /data
+  && mkdir -p /data && chown openclaw:openclaw /data \
+  && chmod +x /app/scripts/entrypoint.sh
 
 ENV PORT=8080
 ENV OPENCLAW_ENTRY=/usr/local/lib/node_modules/openclaw/dist/entry.js
@@ -36,5 +38,7 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD curl -f http://localhost:8080/setup/healthz || exit 1
 
-USER openclaw
+# Run as root initially, entrypoint.sh handles user switching after fixing permissions
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 CMD ["sh", "-c", "node scripts/auto-setup.js && node src/server.js"]
+
