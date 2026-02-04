@@ -2,14 +2,19 @@ FROM node:22-bookworm
 
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    git \
-    procps \
-    python3 \
-    build-essential \
+  ca-certificates \
+  curl \
+  git \
+  procps \
+  python3 \
+  build-essential \
   && rm -rf /var/lib/apt/lists/*
 
+# OpenClaw installation
+# Using @latest to get automatic updates.
+# If OpenClaw breaks again with a new version, pin to a specific working version here.
+# See: https://github.com/openclaw/openclaw/releases
+# Build cache bust: 2026-02-04-stable
 RUN npm install -g openclaw@latest
 
 WORKDIR /app
