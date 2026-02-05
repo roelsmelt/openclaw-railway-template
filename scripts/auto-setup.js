@@ -49,13 +49,13 @@ function setupPersistentState() {
         if (fs.existsSync(VOLUME_PATH)) {
             console.log('[auto-setup] 🔍 Auditing volume content...');
             const audit = (dir, depth = 0) => {
-                if (depth > 2) return;
+                if (depth > 5) return;
                 const files = fs.readdirSync(dir);
                 for (const file of files) {
                     const p = path.join(dir, file);
                     const isDir = fs.statSync(p).isDirectory();
-                    console.log(`[auto-setup] ${'  '.repeat(depth)}${isDir ? '📁' : '📄'} ${file}`);
-                    if (isDir) audit(p, depth + 1);
+                    console.log(`[auto-setup] ${'  '.repeat(depth)}${isDir ? '📁' : '📂'} ${file}`);
+                    if (isDir && depth < 5) audit(p, depth + 1);
                 }
             };
             audit(VOLUME_PATH);
@@ -336,35 +336,7 @@ async function main() {
     console.log('[auto-setup] All required variables present, proceeding with auto-setup...');
 
     // Start the server in background
-    const { spawn } = await import('node:child_process');
-    const serverProc = spawn('node', ['src/server.js'], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        detached: false,
-    });
-
-    let serverOutput = '';
-    serverProc.stdout.on('data', (data) => {
-        const text = data.toString();
-        serverOutput += text;
-        // Only show important server messages during auto-setup
-        if (text.includes('[wrapper]') || text.includes('ERROR') || text.includes('error')) {
-            process.stdout.write(text);
-        }
-    });
-
-    serverProc.stderr.on('data', (data) => {
-        process.stderr.write(data);
-    });
-
-    // Wait for server to be ready
-    console.log('[auto-setup] Waiting for server to start...');
-    try {
-        await waitForServer();
-    } catch (err) {
-        console.error('[auto-setup] ❌', err.message);
-        serverProc.kill();
-        process.exit(1);
-    }
+    const serverProc = await startTempServer();
 
     // Run the setup
     const success = await runSetup();
@@ -376,19 +348,8 @@ async function main() {
     await new Promise(r => setTimeout(r, 1000));
 
     if (success) {
-        console.log('[auto-setup] 🎉 Auto-setup complete! Starting main server...');
-
-        // Start services
-        // Start backup service in background if not already running
-        const { spawn } = require('child_process');
-        const backupProcess = spawn('node', [path.join(__dirname, 'backup.js')], {
-            detached: true,
-            stdio: 'ignore',
-            env: process.env
-        });
-        backupProcess.unref();
-
-        require('../dist/entry.js');
+        console.log('[auto-setup] ✅ Auto-setup successful.');
+        startMainServer();
     } else {
         console.error('[auto-setup] ❌ Auto-setup failed. Check logs above.');
         process.exit(1);
