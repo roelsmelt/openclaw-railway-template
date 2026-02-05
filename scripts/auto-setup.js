@@ -30,7 +30,7 @@ const DEFAULT_WORKSPACE_DIR = path.join(process.cwd(), 'data', 'workspace');
 const VOLUME_MOUNTED = fs.existsSync(VOLUME_PATH) && fs.statSync(VOLUME_PATH).isDirectory();
 const STATE_DIR = process.env.OPENCLAW_STATE_DIR?.trim() || (VOLUME_MOUNTED ? VOLUME_STATE_DIR : DEFAULT_STATE_DIR);
 const WORKSPACE_DIR = process.env.OPENCLAW_WORKSPACE_DIR?.trim() || (VOLUME_MOUNTED ? VOLUME_WORKSPACE_DIR : DEFAULT_WORKSPACE_DIR);
-const CONFIG_PATH = path.join(STATE_DIR, 'clawdbot.json');
+const CONFIG_PATH = path.join(STATE_DIR, 'openclaw.json'); // CRITICAL: Must match actual OpenClaw config filename!
 const AUTO_SETUP_ENABLED = process.env.AUTO_SETUP_ENABLED?.toLowerCase() !== 'false';
 
 /**
