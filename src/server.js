@@ -952,28 +952,44 @@ proxy.on("proxyReqWs", (proxyReq, req, socket, options, head) => {
   proxyReq.setHeader("Authorization", `Bearer ${OPENCLAW_GATEWAY_TOKEN}`);
 });
 
+app.get("/openclaw", (req, res) => {
+  if (!req.query.token) {
+    return res.redirect(`/openclaw?token=${OPENCLAW_GATEWAY_TOKEN}`);
+  }
+  return proxy.web(req, res, { target: GATEWAY_TARGET });
+});
+
 app.use(async (req, res) => {
-  if (!isConfigured() && !req.path.startsWith("/setup")) {
+  const isSetup = req.path.startsWith("/setup");
+  const isPair = req.path.startsWith("/pair");
+  const isSession = req.path.startsWith("/session");
+
+  // Allow setup, pair, and session (QR) routes without redirection
+  if (isSetup || isPair || isSession) {
+    if (isConfigured()) {
+      try {
+        await ensureGatewayRunning();
+      } catch (err) {
+        return res.status(503).type("text/plain").send(`Gateway not ready: ${String(err)}`);
+      }
+    }
+    return proxy.web(req, res, { target: GATEWAY_TARGET });
+  }
+
+  // Mandatory redirection for other routes if not configured
+  if (!isConfigured()) {
     return res.redirect("/setup");
   }
 
-  if (isConfigured()) {
-    if (isGatewayStarting() && !isGatewayReady()) {
-      return res.sendFile(path.join(process.cwd(), "src", "public", "loading.html"));
-    }
-
-    try {
-      await ensureGatewayRunning();
-    } catch (err) {
-      return res
-        .status(503)
-        .type("text/plain")
-        .send(`Gateway not ready: ${String(err)}`);
-    }
+  // Dashboard logic
+  if (isGatewayStarting() && !isGatewayReady()) {
+    return res.sendFile(path.join(process.cwd(), "src", "public", "loading.html"));
   }
 
-  if (req.path === "/openclaw" && !req.query.token) {
-    return res.redirect(`/openclaw?token=${OPENCLAW_GATEWAY_TOKEN}`);
+  try {
+    await ensureGatewayRunning();
+  } catch (err) {
+    return res.status(503).type("text/plain").send(`Gateway not ready: ${String(err)}`);
   }
 
   return proxy.web(req, res, { target: GATEWAY_TARGET });
