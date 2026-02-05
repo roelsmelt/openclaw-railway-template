@@ -755,6 +755,43 @@ app.post("/setup/api/doctor", requireSetupAuth, async (_req, res) => {
   });
 });
 
+app.get("/pair/whatsapp", (req, res) => {
+  res.sendFile(path.join(process.cwd(), "src", "public", "pair.html"));
+});
+
+// Helper to get WhatsApp status and QR without full dashboard complexity
+app.get("/setup/api/whatsapp/qr-data", requireSetupAuth, async (req, res) => {
+  try {
+    // 1. Initial login start to ensure QR logic is active
+    // This is equivalent to clicking "Show QR"
+    await runCmd(OPENCLAW_NODE, clawArgs(["channels", "login", "whatsapp"]));
+
+    // 2. Fetch connection status from gateway
+    const statusResult = await runCmd(OPENCLAW_NODE, clawArgs(["channels", "status", "whatsapp"]));
+    const statusOutput = statusResult.output;
+
+    const connected = statusOutput.includes("Connected") || statusOutput.includes("Running: Yes");
+
+    if (connected) {
+      return res.json({ connected: true });
+    }
+
+    // 3. Try to find the cached QR code in the state dir
+    // OpenClaw usually writes the QR to terminal or a file.
+    // However, the gateway exposes it at /session/qr?id=agent:main:main&token=...
+    // We proxy this request internally to the gateway.
+    const qrUrl = `${GATEWAY_TARGET}/session/qr?id=agent:main:main&token=${OPENCLAW_GATEWAY_TOKEN}`;
+
+    return res.json({
+      connected: false,
+      qr: `/session/qr?id=agent:main:main&token=${OPENCLAW_GATEWAY_TOKEN}` // Frontend will hit our proxy
+    });
+
+  } catch (err) {
+    res.json({ error: String(err) });
+  }
+});
+
 app.get("/tui", requireSetupAuth, (_req, res) => {
   if (!ENABLE_WEB_TUI) {
     return res

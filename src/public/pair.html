@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link WhatsApp | OpenClaw</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: var(--card);
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 { font-size: 24px; margin-bottom: 24px; font-weight: 700; }
+        .instructions {
+            text-align: left;
+            margin-bottom: 30px;
+            background: #f1f5f9;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .instructions b { color: var(--primary); }
+        .qr-wrapper {
+            position: relative;
+            width: 256px;
+            height: 256px;
+            margin: 0 auto 20px;
+            background: #eee;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        #qr-img {
+            max-width: 100%;
+            display: none;
+        }
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .status {
+            font-weight: 600;
+            font-size: 16px;
+            margin-top: 20px;
+            min-height: 24px;
+        }
+        .status.success { color: #10b981; }
+        .status.error { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Link WhatsApp</h1>
+        
+        <div class="instructions">
+            1. Open <b>WhatsApp</b> on your phone<br>
+            2. To settings > <b>Linked Devices</b><br>
+            3. Tap <b>Link a Device</b><br>
+            4. Point your camera at the screen
+        </div>
+
+        <div class="qr-wrapper">
+            <div id="loader" class="loader"></div>
+            <img id="qr-img" alt="WhatsApp QR Code">
+        </div>
+
+        <div id="status" class="status">Connecting to buddy...</div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const qrImg = document.getElementById('qr-img');
+        const loader = document.getElementById('loader');
+
+        async function poll() {
+            try {
+                // Fetch internal session status/qr
+                const res = await fetch('/setup/api/whatsapp/qr-data');
+                const data = await res.json();
+
+                if (data.error) {
+                    statusEl.textContent = data.error;
+                    statusEl.className = 'status error';
+                    return;
+                }
+
+                if (data.connected) {
+                    statusEl.textContent = '✅ Connected successfully!';
+                    statusEl.className = 'status success';
+                    qrImg.style.display = 'none';
+                    loader.style.display = 'none';
+                    return;
+                }
+
+                if (data.qr) {
+                    qrImg.src = data.qr;
+                    qrImg.style.display = 'block';
+                    loader.style.display = 'none';
+                    statusEl.textContent = 'Scan QR code to link';
+                }
+
+                // Poll every 3 seconds
+                setTimeout(poll, 3000);
+            } catch (err) {
+                console.error(err);
+                statusEl.textContent = 'Connection lost. Retrying...';
+                setTimeout(poll, 5000);
+            }
+        }
+
+        poll();
+    </script>
+</body>
+</html>
