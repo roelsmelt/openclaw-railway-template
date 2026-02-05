@@ -45,8 +45,21 @@ function setupPersistentState() {
 
     console.log('[auto-setup] Setting up persistent state on volume...');
 
-    // Ensure volume directories exist with proper permissions
     try {
+        if (fs.existsSync(VOLUME_PATH)) {
+            console.log('[auto-setup] 🔍 Auditing volume content...');
+            const audit = (dir, depth = 0) => {
+                if (depth > 2) return;
+                const files = fs.readdirSync(dir);
+                for (const file of files) {
+                    const p = path.join(dir, file);
+                    const isDir = fs.statSync(p).isDirectory();
+                    console.log(`[auto-setup] ${'  '.repeat(depth)}${isDir ? '📁' : '📄'} ${file}`);
+                    if (isDir) audit(p, depth + 1);
+                }
+            };
+            audit(VOLUME_PATH);
+        }
         if (!fs.existsSync(VOLUME_STATE_DIR)) {
             fs.mkdirSync(VOLUME_STATE_DIR, { recursive: true, mode: 0o700 });
             console.log(`[auto-setup] ✅ Created ${VOLUME_STATE_DIR} (mode 700)`);
