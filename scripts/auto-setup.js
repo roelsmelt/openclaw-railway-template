@@ -377,7 +377,18 @@ async function main() {
 
     if (success) {
         console.log('[auto-setup] 🎉 Auto-setup complete! Starting main server...');
-        process.exit(0);
+
+        // Start services
+        // Start backup service in background if not already running
+        const { spawn } = require('child_process');
+        const backupProcess = spawn('node', [path.join(__dirname, 'backup.js')], {
+            detached: true,
+            stdio: 'ignore',
+            env: process.env
+        });
+        backupProcess.unref();
+
+        require('../dist/entry.js');
     } else {
         console.error('[auto-setup] ❌ Auto-setup failed. Check logs above.');
         process.exit(1);
