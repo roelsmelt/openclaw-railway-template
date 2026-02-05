@@ -14,8 +14,8 @@ RUN apt-get update \
 # OpenClaw installation
 # Version is pinned for stability. GitHub Action will create PRs for updates.
 # See: https://github.com/openclaw/openclaw/releases
-# Current version: 2026.2.2-3 (as of 2026-02-04)
-RUN npm install -g openclaw@2026.2.2-3
+# Current version: 2026.2.3-1 (as of 2026-02-05)
+RUN npm install -g openclaw@2026.2.3-1
 
 WORKDIR /app
 
