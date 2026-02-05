@@ -229,6 +229,10 @@ async function runSetup() {
             console.log('[auto-setup] Configuration:');
             console.log(`  - Model: ${OPTIONAL_VARS.OPENCLAW_MODEL}`);
             console.log(`  - Telegram: ${REQUIRED_VARS.TELEGRAM_BOT_TOKEN.substring(0, 10)}...`);
+
+            // CRITICAL: Set gateway.mode=local - without this the gateway refuses to start
+            await setGatewayMode(auth);
+
             return true;
         } else {
             console.error('[auto-setup] ❌ Setup failed');
@@ -238,6 +242,50 @@ async function runSetup() {
     } catch (err) {
         console.error('[auto-setup] ❌ Setup request failed:', err.message);
         return false;
+    }
+}
+
+async function setGatewayMode(auth) {
+    console.log('[auto-setup] Setting gateway.mode=local...');
+    try {
+        const response = await fetch('http://localhost:8080/setup/api/config', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${auth}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ path: 'gateway.mode', value: 'local' }),
+        });
+
+        if (response.ok) {
+            console.log('[auto-setup] ✅ Gateway mode set to local');
+        } else {
+            // If API fails, try direct file modification
+            console.log('[auto-setup] API failed, setting gateway.mode directly in config file...');
+            const configPath = path.join(STATE_DIR, 'openclaw.json');
+            if (fs.existsSync(configPath)) {
+                const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                config.gateway = config.gateway || {};
+                config.gateway.mode = 'local';
+                fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+                console.log('[auto-setup] ✅ Gateway mode set to local (direct file update)');
+            }
+        }
+    } catch (err) {
+        // Fallback: direct file modification
+        console.log('[auto-setup] Setting gateway.mode directly in config file...');
+        const configPath = path.join(STATE_DIR, 'openclaw.json');
+        if (fs.existsSync(configPath)) {
+            try {
+                const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+                config.gateway = config.gateway || {};
+                config.gateway.mode = 'local';
+                fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+                console.log('[auto-setup] ✅ Gateway mode set to local (direct file update)');
+            } catch (e) {
+                console.error('[auto-setup] ❌ Failed to set gateway mode:', e.message);
+            }
+        }
     }
 }
 
