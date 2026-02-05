@@ -8,7 +8,7 @@
 #   "flow": "quickstart",
 #   "authChoice": "gemini-api-key",
 #   "authSecret": "$GEMINI_API_KEY",
-#   "model": "google/gemini-2.0-flash-exp",
+#   "model": "google/gemini-2.0-flash",
 #   "telegramToken": "$TELEGRAM_BOT_TOKEN"
 # }
 

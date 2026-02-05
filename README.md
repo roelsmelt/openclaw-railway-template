@@ -20,7 +20,7 @@ Set these once in Railway **Project Settings → Shared Variables**:
 Set these individually in each **Service → Variables**:
 - `TELEGRAM_BOT_TOKEN` - Unique Telegram bot token for this buddy
 - `SETUP_PASSWORD` - Setup wizard password (auto-generated in template)
-- `OPENCLAW_MODEL` - Optional, defaults to `google/gemini-2.0-flash-exp`
+- `OPENCLAW_MODEL` - Optional, defaults to `google/gemini-2.0-flash`
 
 ### Auto-Generated Variables
 These are set automatically by the template, don't change:
@@ -120,7 +120,7 @@ Look for messages about missing variables.
 3. **Set Variables:**
    ```
    TELEGRAM_BOT_TOKEN=<your-bot-token>
-   OPENCLAW_MODEL=google/gemini-2.0-flash-exp  # optional
+   OPENCLAW_MODEL=google/gemini-2.0-flash  # optional
    ```
    
 4. **Deploy:** Buddy auto-configures on first start

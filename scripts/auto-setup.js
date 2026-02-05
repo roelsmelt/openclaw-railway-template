@@ -9,7 +9,7 @@
  * - TELEGRAM_BOT_TOKEN: Telegram bot token
  * 
  * Optional:
- * - OPENCLAW_MODEL: Model to use (default: google/gemini-2.0-flash-exp)
+ * - OPENCLAW_MODEL: Model to use (default: google/gemini-2.0-flash)
  * - AUTO_SETUP_ENABLED: Set to "false" to disable auto-setup (default: true)
  */
 
@@ -101,7 +101,7 @@ const REQUIRED_VARS = {
 };
 
 const OPTIONAL_VARS = {
-    OPENCLAW_MODEL: process.env.OPENCLAW_MODEL?.trim() || 'google/gemini-2.0-flash-exp',
+    OPENCLAW_MODEL: process.env.OPENCLAW_MODEL?.trim() || 'google/gemini-2.0-flash',
 };
 
 function isConfigured() {
